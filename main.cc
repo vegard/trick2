@@ -55,6 +55,12 @@ main(int argc, char* argv[])
 
 	graph* g = new graph();
 
+#ifndef FILE_OUTPUT
+	plugin* output = new alsa_output_plugin("plughw:0,0");
+#else
+	plugin* output = new wav_output_plugin("output.wav");
+#endif
+
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
 	plugin* organ = new ladspa_plugin("/home/vegard/programming/cmt/plugins/cmt.so", "organ");
 
@@ -90,12 +96,6 @@ main(int argc, char* argv[])
 		organ->_ports[3]);
 	organ->_seqs.insert(seq);
 
-#ifndef FILE_OUTPUT
-	plugin* output = new alsa_output_plugin();
-#else
-	plugin* output = new wav_output_plugin("output.wav");
-#endif
-
 	g->add(organ);
 	g->add(reverb);
 	g->add(output);
@@ -124,10 +124,10 @@ main(int argc, char* argv[])
 	g->remove(reverb);
 	g->remove(organ);
 
-	delete output;
 	delete seq;
 	delete reverb;
 	delete organ;
+	delete output;
 	delete g;
 
 	return EXIT_SUCCESS;

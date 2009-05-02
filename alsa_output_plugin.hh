@@ -11,11 +11,11 @@ class alsa_output_plugin:
 	public plugin
 {
 public:
-	alsa_output_plugin();
+	alsa_output_plugin(const char* device);
 	~alsa_output_plugin();
 
 private:
-	int init();
+	int init(const char* device);
 
 public:
 	void activate();
@@ -32,9 +32,9 @@ public:
 	short* _frames[2];
 };
 
-alsa_output_plugin::alsa_output_plugin()
+alsa_output_plugin::alsa_output_plugin(const char* device)
 {
-	int err = init();
+	int err = init(device);
 	if (err < 0) {
 		fprintf(stderr, "playback init failed: %s\n",
 			snd_strerror(err));
@@ -58,12 +58,12 @@ alsa_output_plugin::~alsa_output_plugin()
 }
 
 int
-alsa_output_plugin::init()
+alsa_output_plugin::init(const char* device)
 {
 	int err;
 
 	err = snd_pcm_open(&playback_handle,
-		"plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+		device, SND_PCM_STREAM_PLAYBACK, 0);
 	if (err < 0)
 		return err;
 
