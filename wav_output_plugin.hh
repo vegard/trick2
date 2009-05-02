@@ -80,8 +80,6 @@ wav_output_plugin::disconnect(unsigned int port)
 void
 wav_output_plugin::run(unsigned int n)
 {
-	plugin::run(n);
-
 	for (unsigned int i = 0; i < n; ++i) {
 		_output_buffer[2 * i + 0] = _ports[0][i];
 		_output_buffer[2 * i + 1] = _ports[1][i];

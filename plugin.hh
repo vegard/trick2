@@ -55,15 +55,4 @@ plugin::disconnect(unsigned int port)
 	_ports[port] = silence_buffer;
 }
 
-void
-plugin::run(unsigned int sample_count)
-{
-	for (plugin_map::iterator i = _deps.begin(), end = _deps.end();
-		i != end; ++i)
-	{
-		plugin* p = i->first;
-		p->run(sample_count);
-	}
-}
-
 #endif

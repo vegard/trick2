@@ -157,8 +157,6 @@ ladspa_plugin::disconnect(unsigned int port_nr)
 void
 ladspa_plugin::run(unsigned int sample_count)
 {
-	plugin::run(sample_count);
-
 	unsigned int sample_offset = 0;
 	while (sample_count) {
 		unsigned int n = sample_count;

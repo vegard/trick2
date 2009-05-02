@@ -140,8 +140,6 @@ alsa_output_plugin::disconnect(unsigned int port)
 void
 alsa_output_plugin::run(unsigned int n)
 {
-	plugin::run(n);
-
 	for (unsigned int i = 0; i < n; ++i) {
 		_frames[0][i] = 32 * 1024 * _ports[0][i];
 		_frames[1][i] = 32 * 1024 * _ports[1][i];

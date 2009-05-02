@@ -26,6 +26,10 @@ public:
 	void disconnect(plugin* a, unsigned int a_port,
 		plugin* b, unsigned int b_port);
 
+private:
+	void run_recursively(plugin* plugin, unsigned int sample_count);
+
+public:
 	void run(unsigned int sample_count);
 
 private:
@@ -148,6 +152,19 @@ graph::disconnect(plugin* a, unsigned int a_port,
 }
 
 void
+graph::run_recursively(plugin* p, unsigned int sample_count)
+{
+	for (plugin::plugin_map::iterator i = p->_deps.begin(),
+		end = p->_deps.end(); i != end; ++i)
+	{
+		plugin* dep = i->first;
+		run_recursively(dep, sample_count);
+	}
+
+	p->run(sample_count);
+}
+
+void
 graph::run(unsigned int sample_count)
 {
 	unsigned int n = 0;
@@ -157,7 +174,7 @@ graph::run(unsigned int sample_count)
 		plugin* p = *i;
 
 		if (p->_rev_deps.empty()) {
-			p->run(sample_count);
+			run_recursively(p, sample_count);
 			++n;
 		}
 	}
