@@ -21,6 +21,7 @@ static LADSPA_Data silence_buffer[buffer_size];
 #include "alsa_plugin.hh"
 #include "edge.hh"
 #include "graph.hh"
+#include "ladspa_plugin.hh"
 #include "plugin.hh"
 #include "sequencer.hh"
 #include "simple_sequencer.hh"
@@ -45,7 +46,7 @@ main(int argc, char* argv[])
 	graph* g = new graph();
 
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
-	plugin* organ = new plugin("/home/vegard/programming/cmt/plugins/cmt.so", "organ");
+	plugin* organ = new ladspa_plugin("/home/vegard/programming/cmt/plugins/cmt.so", "organ");
 	organ->activate();
 
 	organ->_ports[1][0] = 1;	/* Gate */
@@ -71,7 +72,7 @@ main(int argc, char* argv[])
 
 	g->add(organ);
 
-	plugin* reverb = new plugin("/usr/lib64/ladspa/plate_1423.so", "plate");
+	plugin* reverb = new ladspa_plugin("/usr/lib64/ladspa/plate_1423.so", "plate");
 	reverb->activate();
 
 	reverb->_ports[0][0] = 6.00;	/* Reverb time */
