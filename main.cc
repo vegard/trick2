@@ -18,72 +18,12 @@ static const unsigned long buffer_size = 16384;
 
 static LADSPA_Data silence_buffer[buffer_size];
 
+#include "alsa_plugin.hh"
 #include "edge.hh"
 #include "graph.hh"
 #include "plugin.hh"
 #include "sequencer.hh"
 #include "simple_sequencer.hh"
-
-static snd_pcm_t* playback_handle;
-
-static int
-playback_init()
-{
-	int err;
-
-	err = snd_pcm_open(&playback_handle,
-		"plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
-	if (err < 0)
-		return err;
-
-	snd_pcm_hw_params_t *hw_params;
-	err = snd_pcm_hw_params_malloc(&hw_params);
-	if (err < 0)
-		return err;
-
-	err = snd_pcm_hw_params_any(playback_handle, hw_params);
-	if (err < 0)
-		return err;
-
-	err = snd_pcm_hw_params_set_access(playback_handle,
-		hw_params, SND_PCM_ACCESS_RW_NONINTERLEAVED);
-	if (err < 0)
-		return err;
-
-	err = snd_pcm_hw_params_set_format(playback_handle,
-		hw_params, SND_PCM_FORMAT_S16);
-	if (err < 0)
-		return err;
-
-	unsigned int exact_rate = sample_rate;
-	err = snd_pcm_hw_params_set_rate_near(playback_handle,
-		hw_params, &exact_rate, 0);
-	if (err < 0)
-		return err;
-
-	err = snd_pcm_hw_params_set_channels(playback_handle,
-		hw_params, 2);
-	if (err < 0)
-		return err;
-
-	err = snd_pcm_hw_params(playback_handle, hw_params);
-	if (err < 0)
-		return err;
-
-	snd_pcm_hw_params_free(hw_params);
-
-	err = snd_pcm_prepare(playback_handle);
-	if (err < 0)
-		return err;
-
-	return 0;
-}
-
-static void
-playback_destroy()
-{
-	snd_pcm_close(playback_handle);
-}
 
 static struct note song[] = {
 	{60, 2},
@@ -147,51 +87,16 @@ main(int argc, char* argv[])
 		organ->_ports[3]);
 	organ->_seqs.insert(seq);
 
-	int err;
-	err = playback_init();
-	if (err < 0) {
-		fprintf(stderr, "playback init failed (%s)\n",
-			snd_strerror(err));
-		exit(EXIT_FAILURE);
-	}
+	alsa_plugin* output = new alsa_plugin();
+	output->activate();
 
-	short* frames[2];
-	frames[0] = new short[buffer_size];
-	frames[1] = new short[buffer_size];
-
-	snd_pcm_start(playback_handle);
+	output->connect(0, reverb->_ports[4]);
+	output->connect(1, reverb->_ports[5]);
 
 	printf("running...\n");
 	while (1) {
-		unsigned long n = buffer_size;
-		g->run(n);
-		for (unsigned int i = 0; i < n; ++i) {
-			frames[0][i] = 32 * 1024 * reverb->_ports[4][i];
-			frames[1][i] = 32 * 1024 * reverb->_ports[5][i];
-		}
-
-		unsigned int i = 0;
-		while (n > 0) {
-			void* bufs[] = {
-				(void*) (frames[0] + i),
-				(void*) (frames[1] + i),
-			};
-
-			err = snd_pcm_writen(playback_handle, bufs, n);
-			if (err < 0) {
-				printf("write error: %s\n", snd_strerror(err));
-
-				if (err == -EPIPE) {
-					snd_pcm_prepare(playback_handle);
-					continue;
-				} else {
-					exit(EXIT_FAILURE);
-				}
-			}
-
-			n -= err;
-			i += err;
-		}
+		g->run(buffer_size);
+		output->run(buffer_size);
 	}
 
 	playback_destroy();
