@@ -25,6 +25,7 @@ static LADSPA_Data silence_buffer[buffer_size];
 #include "plugin.hh"
 #include "sequencer.hh"
 #include "simple_sequencer.hh"
+#include "wav_output_plugin.hh"
 
 static struct note song[] = {
 	{60, 2},
@@ -89,7 +90,11 @@ main(int argc, char* argv[])
 		organ->_ports[3]);
 	organ->_seqs.insert(seq);
 
+#ifndef FILE_OUTPUT
 	plugin* output = new alsa_plugin();
+#else
+	plugin* output = new wav_output_plugin("output.wav");
+#endif
 
 	g->add(organ);
 	g->add(reverb);
@@ -102,8 +107,12 @@ main(int argc, char* argv[])
 
 	g->activate();
 
+#ifndef FILE_OUTPUT
 	running = true;
 	while (running)
+#else
+	for (unsigned int i = 0; i < 1000; ++i)
+#endif
 		g->run(buffer_size);
 
 	g->deactivate();

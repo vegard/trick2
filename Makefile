@@ -1,2 +1,2 @@
 a.out: $(wildcard *.cc) $(wildcard *.hh)
-	g++ -Wall -g -pg main.cc -lasound
+	g++ -Wall -g -pg main.cc -lasound -lsndfile
