@@ -29,8 +29,6 @@ public:
 	void* _dl;
 	const LADSPA_Descriptor* _descriptor;
 	LADSPA_Handle _handle;
-
-//	LADSPA_Data** _ladspa_ports;
 };
 
 ladspa_plugin::ladspa_plugin(const char* path, const char* label)
