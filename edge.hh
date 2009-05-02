@@ -14,7 +14,7 @@ public:
 	unsigned int inc();
 	unsigned int dec();
 
-public:
+private:
 	unsigned int _count;
 };
 
