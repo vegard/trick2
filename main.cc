@@ -18,7 +18,7 @@ static const unsigned long buffer_size = 16384;
 
 static LADSPA_Data silence_buffer[buffer_size];
 
-#include "alsa_plugin.hh"
+#include "alsa_output_plugin.hh"
 #include "edge.hh"
 #include "graph.hh"
 #include "ladspa_plugin.hh"
@@ -91,7 +91,7 @@ main(int argc, char* argv[])
 	organ->_seqs.insert(seq);
 
 #ifndef FILE_OUTPUT
-	plugin* output = new alsa_plugin();
+	plugin* output = new alsa_output_plugin();
 #else
 	plugin* output = new wav_output_plugin("output.wav");
 #endif

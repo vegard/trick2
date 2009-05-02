@@ -1,5 +1,5 @@
-#ifndef ALSA_PLUGIN_HH
-#define ALSA_PLUGIN_HH
+#ifndef ALSA_OUTPUT_PLUGIN_HH
+#define ALSA_OUTPUT_PLUGIN_HH
 
 extern "C" {
 #include <alsa/asoundlib.h>
@@ -68,12 +68,12 @@ playback_destroy()
 	snd_pcm_close(playback_handle);
 }
 
-class alsa_plugin:
+class alsa_output_plugin:
 	public plugin
 {
 public:
-	alsa_plugin();
-	~alsa_plugin();
+	alsa_output_plugin();
+	~alsa_output_plugin();
 
 public:
 	void activate();
@@ -88,7 +88,7 @@ public:
 	short* _frames[2];
 };
 
-alsa_plugin::alsa_plugin()
+alsa_output_plugin::alsa_output_plugin()
 {
 	int err = playback_init();
 	if (err < 0) {
@@ -103,7 +103,7 @@ alsa_plugin::alsa_plugin()
 	_ports = new float*[2];
 }
 
-alsa_plugin::~alsa_plugin()
+alsa_output_plugin::~alsa_output_plugin()
 {
 	playback_destroy();
 
@@ -114,18 +114,18 @@ alsa_plugin::~alsa_plugin()
 }
 
 void
-alsa_plugin::activate()
+alsa_output_plugin::activate()
 {
 	snd_pcm_start(playback_handle);
 }
 
 void
-alsa_plugin::deactivate()
+alsa_output_plugin::deactivate()
 {
 }
 
 void
-alsa_plugin::connect(unsigned int port, float* buffer)
+alsa_output_plugin::connect(unsigned int port, float* buffer)
 {
 	assert(port < 2);
 
@@ -133,7 +133,7 @@ alsa_plugin::connect(unsigned int port, float* buffer)
 }
 
 void
-alsa_plugin::disconnect(unsigned int port)
+alsa_output_plugin::disconnect(unsigned int port)
 {
 	assert(port < 2);
 
@@ -141,7 +141,7 @@ alsa_plugin::disconnect(unsigned int port)
 }
 
 void
-alsa_plugin::run(unsigned int n)
+alsa_output_plugin::run(unsigned int n)
 {
 	plugin::run(n);
 
