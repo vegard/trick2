@@ -24,7 +24,7 @@ public:
 	void activate();
 	void deactivate();
 
-	void connect(unsigned int port, LADSPA_Data* buffer);
+	void connect(unsigned int port, float* buffer);
 	void disconnect(unsigned int port);
 
 	void run(unsigned int sample_count);
@@ -34,7 +34,7 @@ public:
 	const LADSPA_Descriptor* _descriptor;
 	LADSPA_Handle _handle;
 
-//	LADSPA_Data** _ports;
+//	LADSPA_Data** _ladspa_ports;
 };
 
 ladspa_plugin::ladspa_plugin(const char* path, const char* label)
@@ -95,8 +95,6 @@ ladspa_plugin::ladspa_plugin(const char* path, const char* label)
 
 ladspa_plugin::~ladspa_plugin()
 {
-	_descriptor->cleanup(_handle);
-
 	for (unsigned int i = 0; i < _descriptor->PortCount; ++i) {
 		const LADSPA_PortDescriptor port
 			= _descriptor->PortDescriptors[i];
@@ -108,6 +106,8 @@ ladspa_plugin::~ladspa_plugin()
 
 		delete[] _ports[i];
 	}
+
+	_descriptor->cleanup(_handle);
 
 	dlclose(_dl);
 }
@@ -134,8 +134,8 @@ ladspa_plugin::connect(unsigned int port_nr, LADSPA_Data* buffer)
 	assert(port & LADSPA_PORT_AUDIO);
 	assert(port & LADSPA_PORT_INPUT);
 
-	_ports[port_nr] = buffer;
-	_descriptor->connect_port(_handle, port_nr, buffer);
+	plugin::connect(port_nr, buffer);
+	_descriptor->connect_port(_handle, port_nr, _ports[port_nr]);
 }
 
 void
@@ -147,19 +147,14 @@ ladspa_plugin::disconnect(unsigned int port_nr)
 	assert(port & LADSPA_PORT_AUDIO);
 	assert(port & LADSPA_PORT_INPUT);
 
-	_ports[port_nr] = silence_buffer;
-	_descriptor->connect_port(_handle, port_nr, silence_buffer);
+	plugin::disconnect(port_nr);
+	_descriptor->connect_port(_handle, port_nr, _ports[port_nr]);
 }
 
 void
 ladspa_plugin::run(unsigned int sample_count)
 {
-	for (plugin_map::iterator i = _deps.begin(), end = _deps.end();
-		i != end; ++i)
-	{
-		plugin* p = i->first;
-		p->run(sample_count);
-	}
+	plugin::run(sample_count);
 
 	unsigned int sample_offset = 0;
 	while (sample_count) {
