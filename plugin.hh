@@ -1,6 +1,11 @@
 #ifndef PLUGIN_HH
 #define PLUGIN_HH
 
+#include <map>
+#include <set>
+
+#include "edge.hh"
+
 class sequencer;
 
 class plugin {

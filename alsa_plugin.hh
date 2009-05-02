@@ -1,6 +1,12 @@
 #ifndef ALSA_PLUGIN_HH
 #define ALSA_PLUGIN_HH
 
+extern "C" {
+#include <alsa/asoundlib.h>
+}
+
+#include "plugin.hh"
+
 static snd_pcm_t* playback_handle;
 
 static int
@@ -62,7 +68,9 @@ playback_destroy()
 	snd_pcm_close(playback_handle);
 }
 
-class alsa_plugin {
+class alsa_plugin:
+	public plugin
+{
 public:
 	alsa_plugin();
 	~alsa_plugin();
@@ -77,7 +85,6 @@ public:
 	void run(unsigned int sample_count);
 
 public:
-	float* _audio_input_ports[2];
 	short* _frames[2];
 };
 
@@ -92,11 +99,15 @@ alsa_plugin::alsa_plugin()
 
 	_frames[0] = new short[buffer_size];
 	_frames[1] = new short[buffer_size];
+
+	_ports = new float*[2];
 }
 
 alsa_plugin::~alsa_plugin()
 {
 	playback_destroy();
+
+	delete[] _ports;
 
 	delete[] _frames[0];
 	delete[] _frames[1];
@@ -118,7 +129,7 @@ alsa_plugin::connect(unsigned int port, LADSPA_Data* buffer)
 {
 	assert(port < 2);
 
-	_audio_input_ports[port] = buffer;
+	plugin::connect(port, buffer);
 }
 
 void
@@ -126,15 +137,17 @@ alsa_plugin::disconnect(unsigned int port)
 {
 	assert(port < 2);
 
-	_audio_input_ports[port] = silence_buffer;
+	plugin::disconnect(port);
 }
 
 void
 alsa_plugin::run(unsigned int n)
 {
+	plugin::run(n);
+
 	for (unsigned int i = 0; i < n; ++i) {
-		_frames[0][i] = 32 * 1024 * _audio_input_ports[0][i];
-		_frames[1][i] = 32 * 1024 * _audio_input_ports[1][i];
+		_frames[0][i] = 32 * 1024 * _ports[0][i];
+		_frames[1][i] = 32 * 1024 * _ports[1][i];
 	}
 
 	unsigned int i = 0;

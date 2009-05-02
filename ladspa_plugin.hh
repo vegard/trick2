@@ -1,15 +1,11 @@
 #ifndef LADSPA_PLUGIN_HH
 #define LADSPA_PLUGIN_HH
 
-#include <map>
-#include <set>
-
 extern "C" {
 #include <dlfcn.h>
 #include <ladspa.h>
 }
 
-#include "edge.hh"
 #include "plugin.hh"
 #include "sequencer.hh"
 

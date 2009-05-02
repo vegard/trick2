@@ -9,7 +9,6 @@ extern "C" {
 #include <string.h>
 #include <unistd.h>
 
-#include <alsa/asoundlib.h>
 #include <ladspa.h>
 #include <math.h>
 }
@@ -57,7 +56,6 @@ main(int argc, char* argv[])
 
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
 	plugin* organ = new ladspa_plugin("/home/vegard/programming/cmt/plugins/cmt.so", "organ");
-	organ->activate();
 
 	organ->_ports[1][0] = 1;	/* Gate */
 	organ->_ports[2][0] = 1.0;	/* Velocity */
@@ -80,50 +78,46 @@ main(int argc, char* argv[])
 	organ->_ports[19][0] = 1;	/* Sustain Hi */
 	organ->_ports[20][0] = 1;	/* Release Hi */
 
-	g->add(organ);
-
 	plugin* reverb = new ladspa_plugin("/usr/lib64/ladspa/plate_1423.so", "plate");
-	reverb->activate();
 
 	reverb->_ports[0][0] = 6.00;	/* Reverb time */
 	reverb->_ports[1][0] = 0.07;	/* Damping */
 	reverb->_ports[2][0] = 0.50;	/* Dry/wet */
-
-	g->add(reverb);
-
-	g->connect(organ, 0, reverb, 3);
 
 	sequencer* seq = new simple_sequencer(60,
 		song, sizeof(song) / sizeof(*song),
 		organ->_ports[3]);
 	organ->_seqs.insert(seq);
 
-	alsa_plugin* output = new alsa_plugin();
-	output->activate();
+	plugin* output = new alsa_plugin();
 
-	output->connect(0, reverb->_ports[4]);
-	output->connect(1, reverb->_ports[5]);
+	g->add(organ);
+	g->add(reverb);
+	g->add(output);
+	g->connect(organ, 0, reverb, 3);
+	g->connect(reverb, 4, output, 0);
+	g->connect(reverb, 5, output, 1);
 
 	printf("running...\n");
 
-	running = true;
-	while (running) {
-		g->run(buffer_size);
-		output->run(buffer_size);
-	}
+	organ->activate();
+	reverb->activate();
+	output->activate();
 
-	delete output;
+	running = true;
+	while (running)
+		g->run(buffer_size);
+
+	output->deactivate();
+	reverb->deactivate();
+	organ->deactivate();
 
 	g->disconnect(organ, 0, reverb, 3);
 
+	delete output;
 	delete seq;
-
-	reverb->deactivate();
 	delete reverb;
-
-	organ->deactivate();
 	delete organ;
-
 	delete g;
 
 	return EXIT_SUCCESS;

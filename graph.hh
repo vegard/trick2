@@ -113,14 +113,19 @@ graph::disconnect(plugin* a, unsigned int a_port,
 void
 graph::run(unsigned int sample_count)
 {
+	unsigned int n = 0;
 	for (plugin_set::iterator i = _plugins.begin(), end = _plugins.end();
 		i != end; ++i)
 	{
 		plugin* p = *i;
 
-		if (p->_rev_deps.empty())
+		if (p->_rev_deps.empty()) {
 			p->run(sample_count);
+			++n;
+		}
 	}
+
+	assert(n > 0);
 }
 
 #endif
