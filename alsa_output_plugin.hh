@@ -7,10 +7,58 @@ extern "C" {
 
 #include "plugin.hh"
 
-static snd_pcm_t* playback_handle;
+class alsa_output_plugin:
+	public plugin
+{
+public:
+	alsa_output_plugin();
+	~alsa_output_plugin();
 
-static int
-playback_init()
+private:
+	int init();
+
+public:
+	void activate();
+	void deactivate();
+
+	void connect(unsigned int port, float* buffer);
+	void disconnect(unsigned int port);
+
+	void run(unsigned int sample_count);
+
+public:
+	snd_pcm_t* playback_handle;
+
+	short* _frames[2];
+};
+
+alsa_output_plugin::alsa_output_plugin()
+{
+	int err = init();
+	if (err < 0) {
+		fprintf(stderr, "playback init failed: %s\n",
+			snd_strerror(err));
+		exit(EXIT_FAILURE);
+	}
+
+	_frames[0] = new short[buffer_size];
+	_frames[1] = new short[buffer_size];
+
+	_ports = new float*[2];
+}
+
+alsa_output_plugin::~alsa_output_plugin()
+{
+	snd_pcm_close(playback_handle);
+
+	delete[] _ports;
+
+	delete[] _frames[0];
+	delete[] _frames[1];
+}
+
+int
+alsa_output_plugin::init()
 {
 	int err;
 
@@ -60,57 +108,6 @@ playback_init()
 		return err;
 
 	return 0;
-}
-
-static void
-playback_destroy()
-{
-	snd_pcm_close(playback_handle);
-}
-
-class alsa_output_plugin:
-	public plugin
-{
-public:
-	alsa_output_plugin();
-	~alsa_output_plugin();
-
-public:
-	void activate();
-	void deactivate();
-
-	void connect(unsigned int port, float* buffer);
-	void disconnect(unsigned int port);
-
-	void run(unsigned int sample_count);
-
-public:
-	short* _frames[2];
-};
-
-alsa_output_plugin::alsa_output_plugin()
-{
-	int err = playback_init();
-	if (err < 0) {
-		fprintf(stderr, "playback init failed: %s\n",
-			snd_strerror(err));
-		exit(EXIT_FAILURE);
-	}
-
-	_frames[0] = new short[buffer_size];
-	_frames[1] = new short[buffer_size];
-
-	_ports = new float*[2];
-}
-
-alsa_output_plugin::~alsa_output_plugin()
-{
-	playback_destroy();
-
-	delete[] _ports;
-
-	delete[] _frames[0];
-	delete[] _frames[1];
 }
 
 void
