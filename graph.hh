@@ -101,7 +101,7 @@ graph::connect(plugin* a, unsigned int a_port,
 			e->inc();
 			b->_deps.insert(std::make_pair(a, e));
 		} else
-			++i->second->_count;
+			i->second->inc();
 	}
 
 	/* add b to a's set of outgoing edges */
@@ -112,7 +112,7 @@ graph::connect(plugin* a, unsigned int a_port,
 			e->inc();
 			a->_rev_deps.insert(std::make_pair(b, e));
 		} else
-			++i->second->_count;
+			i->second->inc();
 	}
 
 	b->connect(b_port, a->_ports[a_port]);
