@@ -79,7 +79,7 @@ public:
 	void activate();
 	void deactivate();
 
-	void connect(unsigned int port, LADSPA_Data* buffer);
+	void connect(unsigned int port, float* buffer);
 	void disconnect(unsigned int port);
 
 	void run(unsigned int sample_count);
@@ -125,7 +125,7 @@ alsa_plugin::deactivate()
 }
 
 void
-alsa_plugin::connect(unsigned int port, LADSPA_Data* buffer)
+alsa_plugin::connect(unsigned int port, float* buffer)
 {
 	assert(port < 2);
 
@@ -168,6 +168,9 @@ alsa_plugin::run(unsigned int n)
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		/* Cast is OK, because we checked for negative numbers above */
+		assert((unsigned int) err <= n);
 
 		n -= err;
 		i += err;
