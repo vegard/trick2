@@ -100,19 +100,17 @@ main(int argc, char* argv[])
 
 	printf("running...\n");
 
-	organ->activate();
-	reverb->activate();
-	output->activate();
+	g->activate();
 
 	running = true;
 	while (running)
 		g->run(buffer_size);
 
-	output->deactivate();
-	reverb->deactivate();
-	organ->deactivate();
+	g->deactivate();
 
 	g->disconnect(organ, 0, reverb, 3);
+	g->disconnect(reverb, 4, output, 0);
+	g->disconnect(reverb, 5, output, 1);
 
 	delete output;
 	delete seq;

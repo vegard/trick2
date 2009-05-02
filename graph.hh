@@ -18,6 +18,9 @@ public:
 	void add(plugin* p);
 	void remove(plugin* p);
 
+	void activate();
+	void deactivate();
+
 	void connect(plugin* a, unsigned int a_port,
 		plugin* b, unsigned int b_port);
 	void disconnect(plugin* a, unsigned int a_port,
@@ -25,11 +28,15 @@ public:
 
 	void run(unsigned int sample_count);
 
+private:
+	bool _activated;
+
 public:
 	plugin_set _plugins;
 };
 
-graph::graph()
+graph::graph():
+	_activated(false)
 {
 }
 
@@ -47,6 +54,36 @@ void
 graph::remove(plugin* p)
 {
 	_plugins.erase(p);
+}
+
+void
+graph::activate()
+{
+	assert(!_activated);
+
+	for (plugin_set::iterator i = _plugins.begin(), end = _plugins.end();
+		i != end; ++i)
+	{
+		plugin* p = *i;
+		p->activate();
+	}
+
+	_activated = true;
+}
+
+void
+graph::deactivate()
+{
+	assert(_activated);
+
+	for (plugin_set::iterator i = _plugins.begin(), end = _plugins.end();
+		i != end; ++i)
+	{
+		plugin* p = *i;
+		p->deactivate();
+	}
+
+	_activated = false;
 }
 
 /* "a" is the output plugin, "b" is the input plugin.
