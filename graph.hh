@@ -46,6 +46,7 @@ graph::graph():
 
 graph::~graph()
 {
+	assert(_plugins.size() == 0);
 }
 
 void
@@ -57,6 +58,10 @@ graph::add(plugin* p)
 void
 graph::remove(plugin* p)
 {
+	/* Catch missing ->disconnect()s [XXX: Should this be in ~plugin?] */
+	assert(p->_deps.size() == 0);
+	assert(p->_rev_deps.size() == 0);
+
 	_plugins.erase(p);
 }
 
@@ -97,6 +102,9 @@ void
 graph::connect(plugin* a, unsigned int a_port,
 	plugin* b, unsigned int b_port)
 {
+	assert(_plugins.find(a) != _plugins.end());
+	assert(_plugins.find(b) != _plugins.end());
+
 	/* add a to b's set of incoming edges */
 	{
 		plugin::plugin_map::iterator i = b->_deps.find(a);
@@ -126,6 +134,9 @@ void
 graph::disconnect(plugin* a, unsigned int a_port,
 	plugin* b, unsigned int b_port)
 {
+	assert(_plugins.find(a) != _plugins.end());
+	assert(_plugins.find(b) != _plugins.end());
+
 	/* remove a from b's set of incoming edges */
 	{
 		plugin::plugin_map::iterator i = b->_deps.find(a);
@@ -154,6 +165,8 @@ graph::disconnect(plugin* a, unsigned int a_port,
 void
 graph::run_recursively(plugin* p, unsigned int sample_count)
 {
+	assert(_plugins.find(p) != _plugins.end());
+
 	for (plugin::plugin_map::iterator i = p->_deps.begin(),
 		end = p->_deps.end(); i != end; ++i)
 	{

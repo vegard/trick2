@@ -117,9 +117,12 @@ main(int argc, char* argv[])
 
 	g->deactivate();
 
-	g->disconnect(organ, 0, reverb, 3);
-	g->disconnect(reverb, 4, output, 0);
 	g->disconnect(reverb, 5, output, 1);
+	g->disconnect(reverb, 4, output, 0);
+	g->disconnect(organ, 0, reverb, 3);
+	g->remove(output);
+	g->remove(reverb);
+	g->remove(organ);
 
 	delete output;
 	delete seq;
