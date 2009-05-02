@@ -95,17 +95,24 @@ ladspa_plugin::ladspa_plugin(const char* path, const char* label)
 
 ladspa_plugin::~ladspa_plugin()
 {
+	/* Delete audio buffers */
 	for (unsigned int i = 0; i < _descriptor->PortCount; ++i) {
 		const LADSPA_PortDescriptor port
 			= _descriptor->PortDescriptors[i];
 
-		if (!(port & LADSPA_PORT_AUDIO))
+		if (port & LADSPA_PORT_CONTROL) {
+			delete[] _ports[i];
 			continue;
-		if (!(port & LADSPA_PORT_OUTPUT))
-			continue;
+		}
 
-		delete[] _ports[i];
+		if (port & LADSPA_PORT_AUDIO) {
+			if (port & LADSPA_PORT_OUTPUT)
+				delete[] _ports[i];
+			continue;
+		}
 	}
+
+	delete[] _ports;
 
 	_descriptor->cleanup(_handle);
 

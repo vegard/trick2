@@ -112,7 +112,9 @@ main(int argc, char* argv[])
 		output->run(buffer_size);
 	}
 
-	playback_destroy();
+	delete output;
+
+	g->disconnect(organ, 0, reverb, 3);
 
 	delete seq;
 

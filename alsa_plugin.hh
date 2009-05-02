@@ -97,6 +97,9 @@ alsa_plugin::alsa_plugin()
 alsa_plugin::~alsa_plugin()
 {
 	playback_destroy();
+
+	delete[] _frames[0];
+	delete[] _frames[1];
 }
 
 void
