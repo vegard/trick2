@@ -3,6 +3,7 @@
 
 extern "C" {
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,9 +41,18 @@ static struct note song[] = {
 	{0, 0},
 };
 
+static bool running;
+
+static void handle_sigint(int signo)
+{
+	running = false;
+}
+
 int
 main(int argc, char* argv[])
 {
+	signal(SIGINT, &handle_sigint);
+
 	graph* g = new graph();
 
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
@@ -95,7 +105,9 @@ main(int argc, char* argv[])
 	output->connect(1, reverb->_ports[5]);
 
 	printf("running...\n");
-	while (1) {
+
+	running = true;
+	while (running) {
 		g->run(buffer_size);
 		output->run(buffer_size);
 	}
