@@ -105,6 +105,7 @@ simple_sequencer::advance(unsigned int duration)
 
 		_duration = _notes[_note_i + 1].timestamp
 			- _notes[_note_i].timestamp;
+
 		*_output_frequency = _notes[_note_i].frequency;
 	}
 }

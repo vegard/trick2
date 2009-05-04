@@ -22,11 +22,13 @@ static LADSPA_Data silence_buffer[buffer_size];
 #include "edge.hh"
 #include "graph.hh"
 #include "ladspa_plugin.hh"
+#include "midi_sequencer.hh"
 #include "plugin.hh"
 #include "sequencer.hh"
 #include "simple_sequencer.hh"
 #include "wav_output_plugin.hh"
 
+#if 0
 static struct note song[] = {
 	{60, 2},
 	{58, 2},
@@ -40,6 +42,7 @@ static struct note song[] = {
 
 	{0, 0},
 };
+#endif
 
 static bool running;
 
@@ -91,9 +94,14 @@ main(int argc, char* argv[])
 	reverb->_ports[1][0] = 0.07;	/* Damping */
 	reverb->_ports[2][0] = 0.50;	/* Dry/wet */
 
+#if 0
 	sequencer* seq = new simple_sequencer(60,
 		song, sizeof(song) / sizeof(*song),
 		organ->_ports[3]);
+#else
+	midi_sequencer* seq = new midi_sequencer("KV331_3_RondoAllaTurca.mid");
+	seq->connect_frequency(0, organ->_ports[3]);
+#endif
 	organ->_seqs.insert(seq);
 
 	g->add(organ);
@@ -107,11 +115,11 @@ main(int argc, char* argv[])
 
 	g->activate();
 
-#ifndef FILE_OUTPUT
 	running = true;
-	while (running)
+#ifdef FILE_OUTPUT
+	for (unsigned int i = 0; running && i < 1000; ++i)
 #else
-	for (unsigned int i = 0; i < 1000; ++i)
+	while (running)
 #endif
 		g->run(buffer_size);
 
