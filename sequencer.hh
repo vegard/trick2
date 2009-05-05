@@ -7,8 +7,8 @@ public:
 	virtual ~sequencer();
 
 public:
-	virtual unsigned int duration_remaining() = 0;
-	virtual void advance(unsigned int duration) = 0;
+	virtual unsigned int duration_remaining(unsigned int voice) = 0;
+	virtual void advance(unsigned int voice, unsigned int duration) = 0;
 };
 
 sequencer::sequencer()

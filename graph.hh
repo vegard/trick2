@@ -5,10 +5,12 @@
 
 #include "edge.hh"
 #include "plugin.hh"
+#include "sequencer.hh"
 
 class graph {
 public:
 	typedef std::set<plugin*> plugin_set;
+	typedef std::set<sequencer*> sequencer_set;
 
 public:
 	graph();
@@ -17,6 +19,9 @@ public:
 public:
 	void add(plugin* p);
 	void remove(plugin* p);
+
+	void add(sequencer* s);
+	void remove(sequencer* s);
 
 	void activate();
 	void deactivate();

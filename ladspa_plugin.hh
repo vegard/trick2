@@ -159,11 +159,13 @@ ladspa_plugin::run(unsigned int sample_count)
 	while (sample_count) {
 		unsigned int n = sample_count;
 
-		for (sequencer_set::iterator i = _seqs.begin(),
+		for (sequencer_map::iterator i = _seqs.begin(),
 			end = _seqs.end(); i != end; ++i)
 		{
-			sequencer* seq = *i;
-			unsigned int d = seq->duration_remaining();
+			sequencer* seq = i->first;
+			unsigned int voice = i->second;
+
+			unsigned int d = seq->duration_remaining(voice);
 			if (d < n)
 				n = d;
 		}
@@ -181,11 +183,13 @@ ladspa_plugin::run(unsigned int sample_count)
 
 		_descriptor->run(_handle, n);
 
-		for (sequencer_set::iterator i = _seqs.begin(),
+		for (sequencer_map::iterator i = _seqs.begin(),
 			end = _seqs.end(); i != end; ++i)
 		{
-			sequencer* seq = *i;
-			seq->advance(n);
+			sequencer* seq = i->first;
+			unsigned int voice = i->second;
+
+			seq->advance(voice, n);
 		}
 
 		sample_count -= n;

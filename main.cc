@@ -23,6 +23,7 @@ static LADSPA_Data silence_buffer[buffer_size];
 #include "graph.hh"
 #include "ladspa_plugin.hh"
 #include "midi_sequencer.hh"
+#include "mixer_plugin.hh"
 #include "plugin.hh"
 #include "sequencer.hh"
 #include "simple_sequencer.hh"
@@ -51,6 +52,8 @@ static void handle_sigint(int signo)
 	running = false;
 }
 
+#define NR_VOICES 10
+
 int
 main(int argc, char* argv[])
 {
@@ -61,32 +64,39 @@ main(int argc, char* argv[])
 #ifndef FILE_OUTPUT
 	plugin* output = new alsa_output_plugin("plughw:0,0");
 #else
-	plugin* output = new wav_output_plugin("output.wav");
+	plugin* output = new wav_output_plugin("output2.wav");
 #endif
 
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
-	plugin* organ = new ladspa_plugin("/home/vegard/programming/cmt/plugins/cmt.so", "organ");
+	plugin* organs[NR_VOICES];
 
-	organ->_ports[1][0] = 1;	/* Gate */
-	organ->_ports[2][0] = 1.0;	/* Velocity */
-	organ->_ports[3][0] = 0;	/* Frequency */
-	organ->_ports[4][0] = 0.9;	/* Brass */
-	organ->_ports[5][0] = 0.5;	/* Reed */
-	organ->_ports[6][0] = 0.4;	/* Flute */
-	organ->_ports[7][0] = 0.3;	/* 16th Harmonic */
-	organ->_ports[8][0] = 0.3;	/* 8th Harmonic */
-	organ->_ports[9][0] = 0.3;	/* 5 1/3rd Harmonic */
-	organ->_ports[10][0] = 0.3;	/* 4th Harmonic */
-	organ->_ports[11][0] = 0.3;	/* 2 2/3rd Harmonic */
-	organ->_ports[12][0] = 0.3;	/* 2nd Harmonic */
-	organ->_ports[13][0] = 0.01;	/* Attack Lo*/
-	organ->_ports[14][0] = 0.8;	/* Decay Lo */
-	organ->_ports[15][0] = 1;	/* Sustain Lo */
-	organ->_ports[16][0] = 1;	/* Release Lo */
-	organ->_ports[17][0] = 0;	/* Attack Hi */
-	organ->_ports[18][0] = 1;	/* Decay Hi */
-	organ->_ports[19][0] = 1;	/* Sustain Hi */
-	organ->_ports[20][0] = 1;	/* Release Hi */
+	for (unsigned int i = 0; i < NR_VOICES; ++i) {
+		plugin* organ = new ladspa_plugin(
+			"/home/vegard/programming/cmt/plugins/cmt.so", "organ");
+
+		organ->_ports[1][0] = 0;	/* Gate */
+		organ->_ports[2][0] = 0.5;	/* Velocity */
+		organ->_ports[3][0] = 0;	/* Frequency */
+		organ->_ports[4][0] = 0.5;	/* Brass */
+		organ->_ports[5][0] = 0.5;	/* Reed */
+		organ->_ports[6][0] = 0.4;	/* Flute */
+		organ->_ports[7][0] = 0.3;	/* 16th Harmonic */
+		organ->_ports[8][0] = 0.3;	/* 8th Harmonic */
+		organ->_ports[9][0] = 0.3;	/* 5 1/3rd Harmonic */
+		organ->_ports[10][0] = 0.3;	/* 4th Harmonic */
+		organ->_ports[11][0] = 0.3;	/* 2 2/3rd Harmonic */
+		organ->_ports[12][0] = 0.3;	/* 2nd Harmonic */
+		organ->_ports[13][0] = 0.01;	/* Attack Lo*/
+		organ->_ports[14][0] = 0.8;	/* Decay Lo */
+		organ->_ports[15][0] = 1;	/* Sustain Lo */
+		organ->_ports[16][0] = 1;	/* Release Lo */
+		organ->_ports[17][0] = 0;	/* Attack Hi */
+		organ->_ports[18][0] = 1;	/* Decay Hi */
+		organ->_ports[19][0] = 1;	/* Sustain Hi */
+		organ->_ports[20][0] = 1;	/* Release Hi */
+
+		organs[i] = organ;
+	}
 
 	plugin* reverb = new ladspa_plugin("/usr/lib64/ladspa/plate_1423.so", "plate");
 
@@ -99,15 +109,28 @@ main(int argc, char* argv[])
 		song, sizeof(song) / sizeof(*song),
 		organ->_ports[3]);
 #else
-	midi_sequencer* seq = new midi_sequencer("KV331_3_RondoAllaTurca.mid");
-	seq->connect_frequency(0, organ->_ports[3]);
+	//midi_sequencer* seq = new midi_sequencer("KV331_3_RondoAllaTurca.mid");
+	midi_sequencer* seq = new midi_sequencer("toccata1.mid");
+	for (unsigned int i = 0; i < NR_VOICES; ++i) {
+		seq->connect_gate(i, organs[i]->_ports[1]);
+		seq->connect_frequency(i, organs[i]->_ports[3]);
+		organs[i]->_seqs[seq] = i;
+	}
 #endif
-	organ->_seqs.insert(seq);
 
-	g->add(organ);
+	plugin* mixer = new mixer_plugin(NR_VOICES);
+
+	for (unsigned int i = 0; i < NR_VOICES; ++i)
+		g->add(organs[i]);
+
+	g->add(mixer);
 	g->add(reverb);
 	g->add(output);
-	g->connect(organ, 0, reverb, 3);
+
+	for (unsigned int i = 0; i < NR_VOICES; ++i)
+		g->connect(organs[i], 0, mixer, 1 + i);
+
+	g->connect(mixer, 0, reverb, 3);
 	g->connect(reverb, 4, output, 0);
 	g->connect(reverb, 5, output, 1);
 
@@ -117,7 +140,7 @@ main(int argc, char* argv[])
 
 	running = true;
 #ifdef FILE_OUTPUT
-	for (unsigned int i = 0; running && i < 1000; ++i)
+	for (unsigned int i = 0; running && i < 1400; ++i)
 #else
 	while (running)
 #endif
@@ -125,16 +148,26 @@ main(int argc, char* argv[])
 
 	g->deactivate();
 
-	g->disconnect(reverb, 5, output, 1);
+	g->disconnect(mixer, 0, reverb, 3);
 	g->disconnect(reverb, 4, output, 0);
-	g->disconnect(organ, 0, reverb, 3);
+	g->disconnect(reverb, 5, output, 1);
+
+	for (unsigned int i = 0; i < NR_VOICES; ++i)
+		g->disconnect(organs[i], 0, mixer, 1 + i);
+
 	g->remove(output);
 	g->remove(reverb);
-	g->remove(organ);
+	g->remove(mixer);
+
+	for (unsigned int i = 0; i < NR_VOICES; ++i)
+		g->remove(organs[i]);
 
 	delete seq;
 	delete reverb;
-	delete organ;
+
+	for (unsigned int i = 0; i < NR_VOICES; ++i)
+		delete organs[i];
+
 	delete output;
 	delete g;
 

@@ -24,8 +24,8 @@ public:
 	~simple_sequencer();
 
 public:
-	unsigned int duration_remaining();
-	void advance(unsigned int duration);
+	unsigned int duration_remaining(unsigned int voice);
+	void advance(unsigned int voice, unsigned int duration);
 
 public:
 	struct note* _notes;
@@ -80,14 +80,17 @@ simple_sequencer::~simple_sequencer()
 }
 
 unsigned int
-simple_sequencer::duration_remaining()
+simple_sequencer::duration_remaining(unsigned int voice)
 {
+	assert(voice != 0);
+
 	return _duration;
 }
 
 void
-simple_sequencer::advance(unsigned int duration)
+simple_sequencer::advance(unsigned int voice, unsigned int duration)
 {
+	assert(voice != 0);
 	assert(duration <= _duration);
 	assert(duration > 0);
 

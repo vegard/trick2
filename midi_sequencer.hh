@@ -1,6 +1,7 @@
 #ifndef MIDI_SEQUENCER_HH
 #define MIDI_SEQUENCER_HH
 
+#include <set>
 #include <vector>
 
 extern "C" {
@@ -46,11 +47,112 @@ midi_event::~midi_event()
 {
 }
 
+class midi_voice
+{
+public:
+	typedef std::vector<midi_event*> event_vector;
+
+public:
+	midi_voice();
+	~midi_voice();
+
+public:
+	void connect_gate(float* input_port);
+	void connect_frequency(float* input_port);
+
+	unsigned int duration_remaining();
+	void advance(unsigned int duration);
+
+public:
+	event_vector _events;
+	unsigned int _event_i;
+	unsigned int _duration;
+
+	float* _gate;
+	float* _frequency;
+};
+
+midi_voice::midi_voice():
+	_event_i(0),
+	_duration(0)
+{
+}
+
+midi_voice::~midi_voice()
+{
+	for (event_vector::iterator i = _events.begin(), end = _events.end();
+		i != end; ++i)
+	{
+		midi_event* e = *i;
+		delete e;
+	}
+}
+
+void
+midi_voice::connect_gate(float* input_port)
+{
+	_gate = input_port;
+}
+
+void
+midi_voice::connect_frequency(float* input_port)
+{
+	_frequency = input_port;
+}
+
+unsigned int
+midi_voice::duration_remaining()
+{
+	return _duration;
+}
+
+#define TIMESTAMP_SCALE 300
+
+void
+midi_voice::advance(unsigned int duration)
+{
+	if (_event_i == _events.size())
+		return;
+
+	assert(duration <= _duration);
+	//assert(duration > 0);
+
+	_duration -= duration;
+	while (_duration == 0) {
+		midi_event* e = _events[_event_i];
+		switch (e->_command) {
+		case 0x80:
+			*_gate = 0;
+			break;
+		case 0x90:
+			if (e->_velocity == 0) {
+				*_gate = 0;
+			} else {
+				*_gate = 1;
+				*_frequency = 440.
+					* pow(2, (e->_note - 69.) / 12.);
+			}
+			break;
+		}
+
+		if (_event_i == _events.size() - 1) {
+			_duration = buffer_size;
+			break;
+		}
+
+		_duration = TIMESTAMP_SCALE * (_events[_event_i + 1]->_timestamp
+			- _events[_event_i]->_timestamp);
+
+
+		++_event_i;
+	}
+}
+
 class midi_sequencer:
 	public sequencer
 {
 public:
-	typedef std::vector<midi_event*> event_vector;
+	typedef std::vector<midi_voice*> voice_vector;
 	typedef std::map<unsigned int, float*> port_map;
 
 public:
@@ -58,17 +160,14 @@ public:
 	~midi_sequencer();
 
 public:
+	void connect_gate(unsigned int output_port, float* input_port);
 	void connect_frequency(unsigned int output_port, float* input_port);
 
-	unsigned int duration_remaining();
-	void advance(unsigned int duration);
+	unsigned int duration_remaining(unsigned int voice);
+	void advance(unsigned int voice, unsigned int duration);
 
 private:
-	event_vector _events;
-	unsigned int _event_i;
-	unsigned int _duration;
-
-	port_map _frequency_map;
+	voice_vector _voices;
 };
 
 static uint8_t
@@ -123,9 +222,7 @@ peek_lei(const uint8_t* m)
 }
 
 /* XXX: This is _not_ safe against corrupt MIDI files. */
-midi_sequencer::midi_sequencer(const char* filename):
-	_event_i(0),
-	_duration(0)
+midi_sequencer::midi_sequencer(const char* filename)
 {
 	int fd = open(filename, O_RDONLY);
 	if (fd == -1)
@@ -207,6 +304,14 @@ midi_sequencer::midi_sequencer(const char* filename):
 		t->timestamp = 0;
 	}
 
+	std::set<unsigned int> voices;
+	unsigned int voices_playing[16][128];
+
+	bool voices_is_playing[16][128];
+	for (unsigned int i = 0; i < 16; ++i)
+		for (unsigned int j = 0; j < 128; ++j)
+			voices_is_playing[i][j] = false;
+
 	while (true) {
 		for (unsigned int i = 0; i < midi.tracks; ++i) {
 			track* t = &tracks[i];
@@ -227,7 +332,7 @@ midi_sequencer::midi_sequencer(const char* filename):
 				continue;
 
 			smallest_track = i;
-			smallest_delay = peek_lei(tracks[i].bytes);
+			smallest_delay = t->timestamp + peek_lei(t->bytes);
 			break;
 		}
 
@@ -235,10 +340,13 @@ midi_sequencer::midi_sequencer(const char* filename):
 		if (smallest_track == midi.tracks)
 			break;
 
-		for (unsigned int i = 1; i < midi.tracks; ++i) {
+		for (unsigned int i = smallest_track + 1; i < midi.tracks; ++i) {
 			track* t = &tracks[i];
 
-			uint32_t delay = peek_lei(t->bytes);
+			if (t->done)
+				continue;
+
+			uint32_t delay = t->timestamp + peek_lei(t->bytes);
 			if (delay < smallest_delay) {
 				smallest_delay = delay;
 				smallest_track = i;
@@ -248,6 +356,9 @@ midi_sequencer::midi_sequencer(const char* filename):
 		track* t = &tracks[smallest_track];
 		uint32_t delay = read_lei(t->bytes);
 
+		/* XXX: Compute the timestamp correctly. */
+		t->timestamp += delay;
+
 		uint8_t command = peek_u8(t->bytes);
 		if (!(command & 0x80))
 			command = t->prev_command;
@@ -255,21 +366,128 @@ midi_sequencer::midi_sequencer(const char* filename):
 			command = read_u8(t->bytes);
 
 		if (command == 0xff) {
-			command = read_u8(t->bytes);
+			read_u8(t->bytes);
 
 			uint32_t skip = read_lei(t->bytes);
 			t->bytes += skip;
+		} else if (command == 0x2f) {
+			t->done = true;
 		} else {
-			uint8_t note = read_u8(t->bytes);
-			uint8_t velocity = read_u8(t->bytes);
+			switch (command & 0xf0) {
+			case 0x80: {
+				uint8_t channel = command & 0x0f;
+				uint8_t note = read_u8(t->bytes);
+				uint8_t velocity = read_u8(t->bytes);
+#if 0
+printf("NOTEOFF %d %d %d\n", smallest_track, channel, note);
+#endif
 
-			_events.push_back(new midi_event(smallest_track,
-				t->timestamp, command & 0xf0, command & 0x0f,
-				note, velocity));
+				if (!voices_is_playing[channel][note]) {
+					printf("warning: note wasn't already playing\n");
+				} else {
+					unsigned int voice_nr = voices_playing[channel][note];
+					midi_voice* v = _voices[voice_nr];
+
+					voices.insert(voice_nr);
+
+					voices_is_playing[channel][note] = false;
+
+					v->_events.push_back(new midi_event(smallest_track,
+						t->timestamp, command & 0xf0, channel,
+						note, velocity));
+				}
+				break;
+			}
+			case 0x90: {
+				uint8_t channel = command & 0x0f;
+				uint8_t note = read_u8(t->bytes);
+				uint8_t velocity = read_u8(t->bytes);
+
+				if (velocity == 0) {
+#if 0
+printf("NOTEOFF %d %d %d\n", smallest_track, channel, note);
+#endif
+
+					if (!voices_is_playing[channel][note]) {
+						printf("warning: note wasn't already playing\n");
+					} else {
+						unsigned int voice_nr = voices_playing[channel][note];
+						midi_voice* v = _voices[voice_nr];
+
+						voices_is_playing[channel][note] = false;
+
+						voices.insert(voice_nr);
+						v->_events.push_back(new midi_event(smallest_track,
+							t->timestamp, command & 0xf0, channel,
+							note, velocity));
+					}
+					break;
+				}
+#if 0
+printf("NOTEON %d %d %d\n", smallest_track, channel, note);
+#endif
+
+				/* Find free voice */
+				unsigned int voice_nr;
+				midi_voice* v;
+
+				if (voices_is_playing[channel][note]) {
+					voice_nr = voices_playing[channel][note];
+					v = _voices[voice_nr];
+					printf("warning: note was already playing\n");
+				} else if (voices.size() == 0) {
+					voice_nr = _voices.size();
+					v = new midi_voice();
+					_voices.push_back(v);
+				} else {
+					std::set<unsigned int>::iterator i
+						= voices.begin();
+					voice_nr = *i;
+					v = _voices[voice_nr];
+					voices.erase(i);
+				}
+
+				voices_is_playing[channel][note] = true;
+				voices_playing[channel][note] = voice_nr;
+
+				v->_events.push_back(new midi_event(smallest_track,
+					t->timestamp, command & 0xf0, channel,
+					note, velocity));
+				break;
+			}
+			case 0xa0:
+			case 0xb0:
+			case 0xe0:
+				read_u8(t->bytes);
+				read_u8(t->bytes);
+				break;
+			case 0xc0:
+			case 0xd0:
+				read_u8(t->bytes);
+				break;
+			case 0x20:
+				break;
+#if 1
+			default:
+				printf("unhandled midi command: %02x\n",
+					command);
+#endif
+			}
 		}
 
-		/* XXX: Compute the timestamp correctly. */
-		t->timestamp += 60 * delay;
+		t->prev_command = command;
+	}
+
+	printf("%d voices:\n", _voices.size());
+	for (unsigned int i = 0; i < _voices.size(); ++i)
+		printf(" * %d notes: %d\n", i, _voices[i]->_events.size());
+
+	for (voice_vector::iterator i = _voices.begin(), end = _voices.end();
+		i != end; ++i)
+	{
+		midi_voice* v = *i;
+
+		v->_duration = TIMESTAMP_SCALE * v->_events[0]->_timestamp;
 	}
 
 	delete[] tracks;
@@ -280,46 +498,44 @@ midi_sequencer::midi_sequencer(const char* filename):
 
 midi_sequencer::~midi_sequencer()
 {
-	for (event_vector::iterator i = _events.begin(), end = _events.end();
+	for (voice_vector::iterator i = _voices.begin(), end = _voices.end();
 		i != end; ++i)
 	{
-		delete *i;
+		midi_voice* v = *i;
+		delete v;
 	}
+}
+
+void
+midi_sequencer::connect_gate(unsigned int output_port, float* input_port)
+{
+	assert(output_port < _voices.size());
+
+	_voices[output_port]->connect_gate(input_port);
 }
 
 void
 midi_sequencer::connect_frequency(unsigned int output_port, float* input_port)
 {
-	_frequency_map[output_port] = input_port;
+	assert(output_port < _voices.size());
+
+	_voices[output_port]->connect_frequency(input_port);
 }
 
 unsigned int
-midi_sequencer::duration_remaining()
+midi_sequencer::duration_remaining(unsigned int voice)
 {
-	return _duration;
+	assert(voice < _voices.size());
+
+	return _voices[voice]->duration_remaining();
 }
 
 void
-midi_sequencer::advance(unsigned int duration)
+midi_sequencer::advance(unsigned int voice, unsigned int duration)
 {
-	assert(duration <= _duration);
-	//assert(duration > 0);
+	assert(voice < _voices.size());
 
-	_duration -= duration;
-	while (_duration == 0) {
-		if (++_event_i == _events.size() - 1) {
-			printf("looping...\n");
-			_event_i = 0;
-		}
-
-		_duration = _events[_event_i + 1]->_timestamp
-			- _events[_event_i]->_timestamp;
-
-		midi_event* e = _events[_event_i];
-		if (e->_command & 0x90)
-			*_frequency_map[0] = 440.
-				* pow(2, (e->_note - 69.) / 12.);
-	}
+	_voices[voice]->advance(duration);
 }
 
 #endif

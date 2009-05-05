@@ -2,7 +2,6 @@
 #define PLUGIN_HH
 
 #include <map>
-#include <set>
 
 #include "edge.hh"
 
@@ -11,15 +10,15 @@ class sequencer;
 class plugin {
 public:
 	typedef std::map<plugin*, edge*> plugin_map;
-	typedef std::set<sequencer*> sequencer_set;
+	typedef std::map<sequencer*, unsigned int> sequencer_map;
 
 public:
 	plugin();
 	virtual ~plugin();
 
 public:
-	virtual void activate() = 0;
-	virtual void deactivate() = 0;
+	virtual void activate();
+	virtual void deactivate();
 
 	virtual void connect(unsigned int port, float* buffer);
 	virtual void disconnect(unsigned int port);
@@ -32,7 +31,7 @@ public:
 	plugin_map _deps;
 	plugin_map _rev_deps;
 
-	sequencer_set _seqs;
+	sequencer_map _seqs;
 };
 
 plugin::plugin()
@@ -40,6 +39,16 @@ plugin::plugin()
 }
 
 plugin::~plugin()
+{
+}
+
+void
+plugin::activate()
+{
+}
+
+void
+plugin::deactivate()
 {
 }
 
