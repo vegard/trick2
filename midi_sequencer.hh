@@ -106,7 +106,7 @@ midi_voice::duration_remaining()
 	return _duration;
 }
 
-#define TIMESTAMP_SCALE 300
+#define TIMESTAMP_SCALE 100
 
 void
 midi_voice::advance(unsigned int duration)
@@ -166,7 +166,7 @@ public:
 	unsigned int duration_remaining(unsigned int voice);
 	void advance(unsigned int voice, unsigned int duration);
 
-private:
+public:
 	voice_vector _voices;
 };
 

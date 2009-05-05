@@ -52,25 +52,30 @@ static void handle_sigint(int signo)
 	running = false;
 }
 
-#define NR_VOICES 10
-
 int
 main(int argc, char* argv[])
 {
 	signal(SIGINT, &handle_sigint);
+
+	midi_sequencer* seq = new midi_sequencer("KV331_3_RondoAllaTurca.mid");
+	//midi_sequencer* seq = new midi_sequencer("toccata1.mid");
+	//midi_sequencer* seq = new midi_sequencer("entertainer.mid");
+	//midi_sequencer* seq = new midi_sequencer("a-breeze-from-alabama.mid");
+
+	unsigned int nr_voices = seq->_voices.size();
 
 	graph* g = new graph();
 
 #ifndef FILE_OUTPUT
 	plugin* output = new alsa_output_plugin("plughw:0,0");
 #else
-	plugin* output = new wav_output_plugin("output2.wav");
+	plugin* output = new wav_output_plugin("output.wav");
 #endif
 
 	//plugin* organ = new plugin("/usr/lib64/ladspa/cmt.so", "organ");
-	plugin* organs[NR_VOICES];
+	plugin* organs[nr_voices];
 
-	for (unsigned int i = 0; i < NR_VOICES; ++i) {
+	for (unsigned int i = 0; i < nr_voices; ++i) {
 		plugin* organ = new ladspa_plugin(
 			"/home/vegard/programming/cmt/plugins/cmt.so", "organ");
 
@@ -95,6 +100,10 @@ main(int argc, char* argv[])
 		organ->_ports[19][0] = 1;	/* Sustain Hi */
 		organ->_ports[20][0] = 1;	/* Release Hi */
 
+		seq->connect_gate(i, organ->_ports[1]);
+		seq->connect_frequency(i, organ->_ports[3]);
+		organ->_seqs[seq] = i;
+
 		organs[i] = organ;
 	}
 
@@ -104,30 +113,16 @@ main(int argc, char* argv[])
 	reverb->_ports[1][0] = 0.07;	/* Damping */
 	reverb->_ports[2][0] = 0.50;	/* Dry/wet */
 
-#if 0
-	sequencer* seq = new simple_sequencer(60,
-		song, sizeof(song) / sizeof(*song),
-		organ->_ports[3]);
-#else
-	//midi_sequencer* seq = new midi_sequencer("KV331_3_RondoAllaTurca.mid");
-	midi_sequencer* seq = new midi_sequencer("toccata1.mid");
-	for (unsigned int i = 0; i < NR_VOICES; ++i) {
-		seq->connect_gate(i, organs[i]->_ports[1]);
-		seq->connect_frequency(i, organs[i]->_ports[3]);
-		organs[i]->_seqs[seq] = i;
-	}
-#endif
+	plugin* mixer = new mixer_plugin(nr_voices);
 
-	plugin* mixer = new mixer_plugin(NR_VOICES);
-
-	for (unsigned int i = 0; i < NR_VOICES; ++i)
+	for (unsigned int i = 0; i < nr_voices; ++i)
 		g->add(organs[i]);
 
 	g->add(mixer);
 	g->add(reverb);
 	g->add(output);
 
-	for (unsigned int i = 0; i < NR_VOICES; ++i)
+	for (unsigned int i = 0; i < nr_voices; ++i)
 		g->connect(organs[i], 0, mixer, 1 + i);
 
 	g->connect(mixer, 0, reverb, 3);
@@ -140,7 +135,7 @@ main(int argc, char* argv[])
 
 	running = true;
 #ifdef FILE_OUTPUT
-	for (unsigned int i = 0; running && i < 1400; ++i)
+	for (unsigned int i = 0; running && i < 378; ++i)
 #else
 	while (running)
 #endif
@@ -152,20 +147,20 @@ main(int argc, char* argv[])
 	g->disconnect(reverb, 4, output, 0);
 	g->disconnect(reverb, 5, output, 1);
 
-	for (unsigned int i = 0; i < NR_VOICES; ++i)
+	for (unsigned int i = 0; i < nr_voices; ++i)
 		g->disconnect(organs[i], 0, mixer, 1 + i);
 
 	g->remove(output);
 	g->remove(reverb);
 	g->remove(mixer);
 
-	for (unsigned int i = 0; i < NR_VOICES; ++i)
+	for (unsigned int i = 0; i < nr_voices; ++i)
 		g->remove(organs[i]);
 
 	delete seq;
 	delete reverb;
 
-	for (unsigned int i = 0; i < NR_VOICES; ++i)
+	for (unsigned int i = 0; i < nr_voices; ++i)
 		delete organs[i];
 
 	delete output;
